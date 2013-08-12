@@ -58,7 +58,7 @@ def _fetch_content(r,debug=None):
         return r.content
 
 def _delete(route,uc,**kwargs):
-    if uc.get('anonymous'):
+    if uc.anonymous:
         raise ValueError('User context cannot be anonymous.').with_traceback(sys.exc_info()[2])
     kwargs.setdefault('params', None)
     kwargs.setdefault('data', None)
@@ -72,7 +72,7 @@ def _delete(route,uc,**kwargs):
     return _fetch_content(r,debug=d)
 
 def _get(route,uc,**kwargs):
-    if uc.get('anonymous'):
+    if uc.anonymous:
         raise ValueError('User context cannot be anonymous.').with_traceback(sys.exc_info()[2])
     kwargs.setdefault('params', None)
     kwargs.setdefault('data', None)
@@ -86,7 +86,7 @@ def _get(route,uc,**kwargs):
     return _fetch_content(r,debug=d)
 
 def _post(route,uc,**kwargs):
-    if uc.get('anonymous'):
+    if uc.anonymous:
         raise ValueError('User context cannot be anonymous.').with_traceback(sys.exc_info()[2])
     kwargs.setdefault('params', None)
     kwargs.setdefault('data', None)
@@ -101,7 +101,7 @@ def _post(route,uc,**kwargs):
     return _fetch_content(r,debug=d)
 
 def _put(route,uc,**kwargs):
-    if uc.get('anonymous'):
+    if uc.anonymous:
         raise ValueError('User context cannot be anonymous.').with_traceback(sys.exc_info()[2])
     kwargs.setdefault('params', None)
     kwargs.setdefault('data', None)
