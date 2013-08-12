@@ -27,6 +27,7 @@ import hashlib
 import hmac
 
 # For use with D2LAppContext and D2LUserContext
+import urllib
 import urlparse
 
 # For use with D2LUserContext
@@ -196,7 +197,7 @@ class D2LAppContext(object):
             scheme = self.SCHEME_U
         netloc = host
         path = self.AUTH_API
-        query = urlparse.urlencode(parms_dict,doseq=True)
+        query = urllib.urlencode(parms_dict,doseq=True)
         result = urlparse.urlunsplit((scheme,netloc,path,query,fragment))
 
         return result
@@ -365,7 +366,7 @@ class D2LUserContext(AuthBase):
         method = r.method.upper()
         time = self._get_time_string()
         # return path to its original, un-URL quoted state
-        bs_path = urlparse.unquote_plus(path.lower())
+        bs_path = urllib.unquote_plus(path.lower())
         base = '{0}&{1}&{2}'.format(method, bs_path, time)
 
         app_sig = self.signer.get_hash(self.app_key, base)
@@ -382,7 +383,7 @@ class D2LUserContext(AuthBase):
                        self.TIME: [time]
             }
         qparms_dict.update(parms_dict)
-        query = urlparse.urlencode(qparms_dict,doseq=True)
+        query = urllib.urlencode(qparms_dict,doseq=True)
 
         r.url = urlparse.urlunsplit((scheme, netloc, path, query, fragment))
 
@@ -411,7 +412,7 @@ class D2LUserContext(AuthBase):
         """
         time = self._get_time_string()
         # return path to its original, un-URL quoted state
-        bs_path = urlparse.unquote_plus(api_route.lower())
+        bs_path = urllib.unquote_plus(api_route.lower())
         base = '{0}&{1}&{2}'.format(method.upper(), bs_path, time)
 
         app_sig = self.signer.get_hash(self.app_key, base)
@@ -435,7 +436,7 @@ class D2LUserContext(AuthBase):
             scheme = self.SCHEME_P
         netloc = self.host
         path = api_route
-        query = urlparse.urlencode(parms_dict)
+        query = urllib.urlencode(parms_dict)
         result = urlparse.urlunsplit((scheme,netloc,path,query,fragment))
 
         return result
