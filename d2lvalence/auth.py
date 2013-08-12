@@ -27,8 +27,7 @@ import hashlib
 import hmac
 
 # For use with D2LAppContext and D2LUserContext
-import urllib
-import urlparse
+import urllib.parse
 
 # For use with D2LUserContext
 import time
@@ -59,7 +58,6 @@ def fashion_user_context(app_id='', app_key='', d2l_user_context_props_dict={}):
 class D2LSigner(object):
     """Default signer class that app and user contexts can use to create
     appropriately signed tokens.
-
     """
 
     def get_hash(self, key_string, base_string):
@@ -89,7 +87,7 @@ class D2LSigner(object):
         h256 = hmac.new(k,b,hashlib.sha256)
         d = base64.urlsafe_b64encode(h256.digest())
         result = d.decode('utf-8').replace('=','').strip()
-        
+
         return result
 
     def check_hash(self, hash_string, key_string, base_string):
@@ -121,6 +119,7 @@ class D2LAppContext(object):
 
     # Constants for use by inheriting D2LAppContext classes, used to help keep
     # track of the query parameter names used in Valence API URLs
+    SCHEME_U = 'HTTP'
     SCHEME_S = 'HTTPS'
     APP_ID = 'x_a'
     APP_SIG = 'x_b'
@@ -159,7 +158,8 @@ class D2LAppContext(object):
     def __repr__(self):
         return repr({'app_id': self.app_id, 'app_key': self.app_key, 'signer': repr(self.signer)})
 
-    def create_url_for_authentication(self, host, client_app_url, connect_type=None):
+    def create_url_for_authentication(self, host, client_app_url,
+                                      connect_type=None, encrypt_request=True):
         """Build a URL that the user's browser can employ to complete the user
         authentication process with the back-end LMS.
 
@@ -173,6 +173,9 @@ class D2LAppContext(object):
         :param connect_type:
             Provide a type string value of `mobile` to signal to the back-end
             service that the user-context will connect from a mobile device.
+        :param encrypt_request:
+            If true (default), generate an URL using a secure scheme (HTTPS);
+            otherwise, generate an URL for an unsecure scheme (HTTP).
         """
         sig = self.signer.get_hash(self.app_key, client_app_url)
 
@@ -187,14 +190,37 @@ class D2LAppContext(object):
 
         # the urlunsplit parts needed to build an URL
         scheme = netloc = path = query = fragment = ''
-        scheme = self.SCHEME_S
+        if encrypt_request:
+            scheme = self.SCHEME_S
+        else:
+            scheme = self.SCHEME_U
         netloc = host
         path = self.AUTH_API
-        query = urllib.urlencode(parms_dict,doseq=True)
-        result = urlparse.urlunsplit((scheme,netloc,path,query,fragment))
+        query = urllib.parse.urlencode(parms_dict,doseq=True)
+        result = urllib.parse.urlunsplit((scheme,netloc,path,query,fragment))
 
         return result
 
+    def create_anonymous_user_context(self, host, encrypt_requests=False):
+        """Build a new anonymous-LMS-user authentication context for a Valence
+        Learning Framework API client application.
+
+        :param host:
+            Host name for the back-end service.
+
+        :param encrypt_requests:
+            If true, use HTTPS for requests made through the resulting built
+            user context; if false (the default), use HTTP.
+        """
+        if host == '':
+            raise ValueError('host must have a value when building a new context.')
+        pd = {'host': host,
+             'encrypt_requests': encrypt_requests,
+             'user_id': '',
+             'user_key': '',
+             'server_skew': 0 }
+        r = self.create_user_context(d2l_user_context_props_dict=pd)
+        return r
 
     def create_user_context(self, result_uri='', host='', encrypt_requests=False,
                           d2l_user_context_props_dict={}):
@@ -236,9 +262,9 @@ class D2LAppContext(object):
             if '' in (result_uri, host):
                 raise ValueError('result_uri and host must have values when building new contexts.')
 
-            parts = urlparse.urlsplit(result_uri)
+            parts = urllib.parse.urlsplit(result_uri)
             scheme,netloc,path,query,fragment = parts[:5]
-            parsed_query = urlparse.parse_qs(query)
+            parsed_query = urllib.parse.parse_qs(query)
             uID = parsed_query[self.CALLBACK_USER_ID][0]
             uKey = parsed_query[self.CALLBACK_USER_KEY][0]
             if uID and uKey:
@@ -302,8 +328,10 @@ class D2LUserContext(AuthBase):
             self.scheme = self.SCHEME_S
         self.host = self.user_id = self.user_key = self.app_id = self.app_key = ''
 
-        if '' in (host, user_id, user_key, app_id, app_key):
-            raise ValueError('host, user_id, user_key, app_id, and app_key must have values.')
+        if (user_id == '') != (user_key == ''):
+            raise ValueError('Anonymous context must have user_id and user_key empty; or, user context must have both user_id and user_key with values.')
+        elif '' in (host, app_id, app_key):
+            raise ValueError('host, app_id, and app_key must have values.')
         else:
             self.host = host
             self.user_id = user_id
@@ -313,6 +341,11 @@ class D2LUserContext(AuthBase):
             self.encrypt_requests = encrypt_requests
             self.server_skew = server_skew
 
+        if self.user_id == '':
+            self.anonymous = True
+        else:
+            self.anonymous = False
+
         if not isinstance(signer, D2LSigner):
             raise TypeError('signer must implement D2LSigner')
         else:
@@ -321,20 +354,25 @@ class D2LUserContext(AuthBase):
     # Entrypoint for use by requests.auth.AuthBase callers
     def __call__(self,r):
         # modify requests.Request `r` to patch in appropriate auth goo
-        
-        scheme = netloc = path = query = fragment = ''
 
-        parts = urlparse.urlsplit(r.url)
+        method = scheme = netloc = path = query = fragment = ''
+
+        parts = urllib.parse.urlsplit(r.url)
         scheme, netloc, path, query, fragment = parts[:5]
 
-        qparms_dict = urlparse.parse_qs( query )
-        method = r.method
+        qparms_dict = urllib.parse.parse_qs( query )
 
+        method = r.method.upper()
         time = self._get_time_string()
-        base = '{0}&{1}&{2}'.format(method.upper(), path.lower(), time)
+        # return path to its original, un-URL quoted state
+        bs_path = urllib.parse.unquote_plus(path.lower())
+        base = '{0}&{1}&{2}'.format(method, bs_path, time)
 
         app_sig = self.signer.get_hash(self.app_key, base)
-        usr_sig = self.signer.get_hash(self.user_key, base)
+        if self.anonymous:
+            usr_sig = ''
+        else:
+            usr_sig = self.signer.get_hash(self.user_key, base)
 
         # set up the dictionary for the query parms to add
         parms_dict = { self.APP_ID: [self.app_id],
@@ -344,10 +382,10 @@ class D2LUserContext(AuthBase):
                        self.TIME: [time]
             }
         qparms_dict.update(parms_dict)
-        query = urllib.urlencode(qparms_dict,doseq=True)
+        query = urllib.parse.urlencode(qparms_dict,doseq=True)
 
-        r.url = urlparse.urlunsplit((scheme, netloc, path, query, fragment))
-        
+        r.url = urllib.parse.urlunsplit((scheme, netloc, path, query, fragment))
+
         return r
 
     def __repr__(self):
@@ -372,10 +410,15 @@ class D2LUserContext(AuthBase):
         API call.
         """
         time = self._get_time_string()
-        base = '{0}&{1}&{2}'.format(method.upper(), api_route.lower(), time)
+        # return path to its original, un-URL quoted state
+        bs_path = urllib.parse.unquote_plus(api_route.lower())
+        base = '{0}&{1}&{2}'.format(method.upper(), bs_path, time)
 
         app_sig = self.signer.get_hash(self.app_key, base)
-        usr_sig = self.signer.get_hash(self.user_key, base)
+        if self.anonymous:
+            usr_sig = ''
+        else:
+            usr_sig = self.signer.get_hash(self.user_key, base)
 
         parms_dict = { self.APP_ID:self.app_id,
                       self.APP_SIG:app_sig,
@@ -392,8 +435,8 @@ class D2LUserContext(AuthBase):
             scheme = self.SCHEME_P
         netloc = self.host
         path = api_route
-        query = urllib.urlencode(parms_dict)
-        result = urlparse.urlunsplit((scheme,netloc,path,query,fragment))
+        query = urllib.parse.urlencode(parms_dict)
+        result = urllib.parse.urlunsplit((scheme,netloc,path,query,fragment))
 
         return result
 
@@ -417,7 +460,7 @@ class D2LUserContext(AuthBase):
         :returns: One of the enumerated D2LAuthResult class variables.
         """
         result = D2LAuthResult.UNKNOWN
-    
+
         if result_code == 200:
             result = D2LAuthResult.OKAY
         elif result_code == 401:
@@ -436,7 +479,8 @@ class D2LUserContext(AuthBase):
                'user_id':self.user_id,
                'user_key':self.user_key,
                'encrypt_requests':self.encrypt_requests,
-               'server_skew':self.server_skew
+               'server_skew':self.server_skew,
+               'anonymous':self.anonymous
             }
         return cp
 
@@ -447,6 +491,3 @@ class D2LUserContext(AuthBase):
         :param newSkewMillis: New server time-skew value, in milliseconds.
         """
         self.server_skew = new_skew
-
-
-

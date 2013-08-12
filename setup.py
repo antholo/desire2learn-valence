@@ -24,7 +24,7 @@ if sys.argv[-1] == 'publish':
 packages = ['d2lvalence', ]
 
 # We depend on Kenneth Reitz' requests package to handle the actual HTTP traffic
-requires = ['requests >= 0.13.0', ]
+requires = ['requests >= 1.2.0', ]
 
 setup(
     name='D2LValence',
@@ -38,7 +38,9 @@ setup(
     packages=packages,
     package_data={'': ['LICENSE', ] },
     include_package_data=True,
-    install_requires=requires,
+    install_requires=[
+        'requests >= 1.2.0',
+        ],
     license=open('LICENSE').read(),
     classifiers=(
         'Development Status :: 3 - Alpha',
@@ -46,6 +48,10 @@ setup(
         'Natural Language :: English',
         'License :: OSI Approved :: Apache Software License',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.0',
+        'Programming Language :: Python :: 3.1',
+        'Programming Language :: Python :: 3.2',
+        'Programming Language :: Python :: 3.3'
         ),
     )
