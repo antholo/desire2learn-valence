@@ -45,7 +45,7 @@ def _fetch_content(r,debug=None):
         debug.add_response(r)
     r.raise_for_status()
     ct = ''
-    if r.headers['content-type']:
+    if r.headers.get('content-type'):
         ct = r.headers['content-type']
     if 'application/json' in ct:
         if requests.__version__[0] is '0':
