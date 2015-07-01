@@ -86,8 +86,8 @@ def get_pages(epObject, fileDict):
 
     Parameters:
         epObject: an ePortfolio presentation object from
-         d2lepoexport.get_ep_object_properties or
-         d2lepoexport.get_ep_presentation.
+         eportfolio.get_ep_object_properties or
+         eportfolio.get_ep_presentation.
     """
     homePage = DOMAIN + epObject.ViewLink
     soup = make_soup(homePage)
@@ -155,7 +155,7 @@ def get_embedded_object(soup, fileDict, uc):
             if epoId not in fileDict['fileIds']:
                 fileDict['fileIds'].append(epoId)
                 fileDict['fileUrls'].append(DOMAIN + href)
-                fileName = d2lepoexport.get_ep_object_properties(uc, epoId).\
+                fileName = eportfolio.get_ep_object_properties(uc, epoId).\
                     FileName.strip()
                 fileDict['fileNames'].append(fileName)
     return fileDict
@@ -205,7 +205,7 @@ def get_img(soup, fileDict, uc):
             if epoId not in fileDict['fileIds']:
                 fileDict['fileIds'].append(epoId)
                 fileDict['fileUrls'].append(address)
-                fileName = d2lepoexport.get_ep_object_properties(uc, epoId).\
+                fileName = eportfolio.get_ep_object_properties(uc, epoId).\
                     FileName.strip()
                 fileDict['fileNames'].append(fileName)
     return fileDict
@@ -218,8 +218,8 @@ def populate_file_dict(epObject, uc, fileDict):
 
     Parameters:
         epObject: an ePortfolio presentation object from
-         d2lepoexport.get_ep_object_properties or
-         d2lepoexport.get_ep_presentation.
+         eportfolio.get_ep_object_properties or
+         eportfolio.get_ep_presentation.
     """
     fileDict = get_pages(epObject, fileDict)
     for url in fileDict['pageUrls']:
@@ -269,7 +269,7 @@ def download_presentation(epObject, uc):
     os.mkdir("Content")
     os.chdir("Content")
     for (fileUrl, fileId) in zip(fileDict['fileUrls'], fileDict['fileIds']):
-        fileName = d2lepoexport.get_ep_object_properties(uc, fileId).\
+        fileName = eportfolio.get_ep_object_properties(uc, fileId).\
             FileName.strip()
         urllib.request.urlretrieve(fileUrl, fileName)
     os.chdir("../")
